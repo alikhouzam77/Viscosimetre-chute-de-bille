@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Viscosimètre à Chute de Bille</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .top-nav {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 630px;
+            justify-content: space-between;
+        }
+        .top-nav button, .top-nav a {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #343a40;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .top-nav button:hover, .top-nav a:hover {
+            background-color: #495057;
+        }
+        .main-container {
+            display: flex;
+            gap: 30px;
+        }
+        canvas {
+            background-color: #ffffff;
+            border: 2px solid #333;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 350px;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .control-group { display: flex; flex-direction: column; }
+        label { font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        input[type="range"] { width: 100%; }
+        .buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .action-btn { flex: 1; padding: 10px; font-size: 16px; font-weight: bold; color: #fff; background-color: #0056b3; border: none; border-radius: 4px; cursor: pointer; }
+        .action-btn:hover { background-color: #004494; }
+        #resetBtn { background-color: #dc3545; }
+        #resetBtn:hover { background-color: #c82333; }
+        .data-panel { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; font-family: monospace; font-size: 14px; line-height: 1.6; }
+        
+        /* Modals */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            line-height: 1.5;
+        }
+        .close-btn {
+            position: absolute; top: 10px; right: 15px;
+            font-size: 20px; font-weight: bold; cursor: pointer; color: #333;
+        }
+        .modal-content h2 { margin-top: 0; color: #0056b3; }
+        .formula { background: #f8f9fa; padding: 10px; text-align: center; font-family: monospace; font-size: 16px; border: 1px solid #ddd; }
+        .credits {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .credits a {
+            color: #0056b3;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-nav">
+        <button onclick="openModal('modal-instructions')">Instructions</button>
+        <button onclick="openModal('modal-theorie')">Principe et Formules</button>
+        <a href="votre_fichier_questions.pdf" target="_blank">Questions (PDF)</a>
+    </div>
+
+    <div class="main-container">
+        <canvas id="simCanvas" width="250" height="600"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Rayon de la bille (m): <span id="rVal">0.01</span></label>
+                <input type="range" id="r" min="0.005" max="0.04" step="0.001" value="0.01">
+            </div>
+            <div class="control-group">
+                <label>Masse Volumique bille (kg/m³): <span id="rhoBVal">7800</span></label>
+                <input type="range" id="rhoB" min="1000" max="10000" step="100" value="7800">
+            </div>
+            <div class="control-group">
+                <label>Masse volumique fluide (kg/m³): <span id="rhoFVal">1260</span></label>
+                <input type="range" id="rhoF" min="500" max="2000" step="10" value="1260">
+            </div>
+            <div class="control-group">
+                <label>Viscosité (Pa.s): <span id="etaVal">1.5</span></label>
+                <input type="range" id="eta" min="0.01" max="10" step="0.01" value="1">
+            </div>
+
+            <div class="buttons">
+                <button id="startBtn" class="action-btn">Démarrer</button>
+                <button id="resetBtn" class="action-btn">Réinitialiser</button>
+            </div>
+
+            <div class="data-panel">
+                <strong>Données :</strong><br>
+                Vitesse : <span id="vAct">0.000</span> m/s<br>
+                V. limite théorique : <span id="vTerm">0.000</span> m/s<br>
+                Temps : <span id="time">0.00</span> s
+            </div>
+        </div>
+    </div>
+    <div class="credits">
+        <strong> Ali KHOUZAM</strong><br>
+        Enseignant-chercheur à l'Icam GPS<br>
+        <a href="mailto:ali.khouzam@icam.fr">ali.khouzam@icam.fr</a>
+    </div>
+    <div id="modal-instructions" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('modal-instructions')">&times;</span>
+            <h2>Travail à réaliser</h2>
+            <ol>
+                <li>Fixez les paramètres de la bille et du fluide selon les indications du devoir.</li>
+                <li>Lancez la simulation en cliquant sur "Démarrer".</li>
+                <li>Le chronomètre mesure le temps de chute entre les deux lignes rouges. Relevez ce temps.</li>
+                <li>Utilisez le temps relevé et la distance entre les repères pour calculer la vitesse limite expérimentale.</li>
+                <li>Déduisez la viscosité du fluide et comparez-la à la valeur configurée dans le simulateur.</li>
+            </ol>
+        </div>
+    </div>
+
+    <div id="modal-theorie" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('modal-theorie')">&times;</span>
+            <h2>Principe de mesure (Loi de Stokes)</h2>
+            <p>Une sphère tombant dans un fluide visqueux subit trois forces :</p>
+            <ul>
+                <li><strong>Le poids (P)</strong> dirigé vers le bas.</li>
+                <li><strong>La poussée d'Archimède (&Pi;)</strong> dirigée vers le haut.</li>
+                <li><strong>La force de traînée (F<sub>d</sub>)</strong> dirigée vers le haut, proportionnelle à la vitesse.</li>
+            </ul>
+            <p>Lorsque ces forces s'équilibrent, l'accélération devient nulle. La bille atteint une <strong>vitesse limite constante (v<sub>t</sub>)</strong>.</p>
+            <p>Formule de la viscosité dynamique (&eta;) :</p>
+            <div class="formula">
+                &eta; = [ 2 * r&sup2; * (&rho;<sub>bille</sub> - &rho;<sub>fluide</sub>) * g ] / ( 9 * v<sub>t</sub> )
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Gestion des modales
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                event.target.style.display = 'none';
+            }
+        }
+
+        // Moteur physique et rendu
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const scale = 500; 
+        const g = 9.81;
+        const lineStart = 150;
+        const lineEnd = 500;
+        const distanceMetres = (lineEnd - lineStart) / scale;
+        
+        let running = false;
+        let timing = false;
+        let lastTime = 0;
+        let timeElapsed = 0;
+        let y = 0; 
+        let v = 0; 
+
+        const inputs = {
+            r: document.getElementById('r'),
+            rhoB: document.getElementById('rhoB'),
+            rhoF: document.getElementById('rhoF'),
+            eta: document.getElementById('eta')
+        };
+
+        function calculateTerminalVelocity(r, rhoB, rhoF, eta) {
+            let vt = (2 * Math.pow(r, 2) * (rhoB - rhoF) * g) / (9 * eta);
+            return Math.max(0, vt);
+        }
+
+        function updateUI() {
+            let r = parseFloat(inputs.r.value);
+            let rhoB = parseFloat(inputs.rhoB.value);
+            let rhoF = parseFloat(inputs.rhoF.value);
+            let eta = parseFloat(inputs.eta.value);
+            
+            document.getElementById('rVal').textContent = r.toFixed(3);
+            document.getElementById('rhoBVal').textContent = rhoB;
+            document.getElementById('rhoFVal').textContent = rhoF;
+            document.getElementById('etaVal').textContent = eta.toFixed(1);
+            
+            let vt = calculateTerminalVelocity(r, rhoB, rhoF, eta);
+            document.getElementById('vTerm').textContent = vt.toFixed(3);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#cce7ff';
+            ctx.fillRect(10, 50, canvas.width - 20, canvas.height - 60);
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(10, 50, canvas.width - 20, canvas.height - 60);
+
+            ctx.strokeStyle = '#ff0000';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(10, lineStart); ctx.lineTo(canvas.width - 10, lineStart);
+            ctx.moveTo(10, lineEnd); ctx.lineTo(canvas.width - 10, lineEnd);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '12px Arial';
+            ctx.fillText("Départ chrono", 15, lineStart - 5);
+            ctx.fillText("Fin chrono (" + distanceMetres.toFixed(2) + " m)", 15, lineEnd - 5);
+
+            let r = parseFloat(inputs.r.value);
+            let pxY = 50 + (y * scale);
+            let pxR = r * scale;
+
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, pxY, pxR, 0, Math.PI * 2);
+            let gradient = ctx.createRadialGradient(canvas.width/2 - pxR/3, pxY - pxR/3, pxR/10, canvas.width/2, pxY, pxR);
+            gradient.addColorStop(0, '#aaa');
+            gradient.addColorStop(1, '#333');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+
+        function updatePhysics(dt) {
+            let r = parseFloat(inputs.r.value);
+            let rhoB = parseFloat(inputs.rhoB.value);
+            let rhoF = parseFloat(inputs.rhoF.value);
+            let eta = parseFloat(inputs.eta.value);
+
+            let volume = (4/3) * Math.PI * Math.pow(r, 3);
+            let masse = rhoB * volume;
+            let P = masse * g;
+            let Pi = rhoF * volume * g;
+            let Fd = 6 * Math.PI * eta * r * v;
+            
+            let a = (P - Pi - Fd) / masse;
+            v += a * dt;
+            y += v * dt;
+            
+            let pxY = 50 + (y * scale);
+            if (pxY >= lineStart && pxY <= lineEnd) {
+                timing = true;
+                timeElapsed += dt;
+            } else if (pxY > lineEnd) {
+                timing = false;
+            }
+
+            document.getElementById('vAct').textContent = Math.max(0, v).toFixed(3);
+            document.getElementById('time').textContent = timeElapsed.toFixed(3);
+        }
+
+        function loop(timestamp) {
+            if (!running) return;
+            let dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            if (dt > 0.1) dt = 0.016; 
+
+            updatePhysics(dt);
+            draw();
+            
+            let r = parseFloat(inputs.r.value);
+            if (50 + (y * scale) + (r * scale) < canvas.height - 10) {
+                requestAnimationFrame(loop);
+            } else {
+                running = false;
+                document.getElementById('startBtn').textContent = "Terminé";
+            }
+        }
+
+        Object.keys(inputs).forEach(k => {
+            inputs[k].addEventListener('input', () => { updateUI(); if (!running) draw(); });
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!running && y === 0) {
+                running = true;
+                timing = false;
+                lastTime = performance.now();
+                requestAnimationFrame(loop);
+                document.getElementById('startBtn').disabled = true;
+                Object.values(inputs).forEach(input => input.disabled = true);
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            running = false; timing = false; y = 0; v = 0; timeElapsed = 0;
+            document.getElementById('vAct').textContent = "0.000";
+            document.getElementById('time').textContent = "0.000";
+            document.getElementById('startBtn').textContent = "Démarrer";
+            document.getElementById('startBtn').disabled = false;
+            Object.values(inputs).forEach(input => input.disabled = false);
+            draw();
+        });
+
+        updateUI();
+        draw();
+    </script>
+</body>
+</html>
